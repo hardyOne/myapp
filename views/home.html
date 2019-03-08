@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CS527-Group4</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+<div style="margin-top: 50px;" class="container">
+    <div class="sql">
+        <form>
+            <span style="margin-right: 200px">Query:</span>
+            <label class="checkbox-inline" style="margin-left: 200px"><input type="radio" value="" name="choice"
+                                                                              id="mysql" checked> MySQL</label>
+            <label class="checkbox-inline float-right"><input type="radio" value="" name="choice" id="redshift"> Redshift</label>
+            <div class="form-group">
+                <textarea class="form-control" id="sqlTextArea" rows="10"></textarea>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="run">RUN</button>
+            <div class="float-right">
+                Total: <span id="total" style="margin-right: 20px">0</span>
+                Time Elapsed: <span id="runtime"></span></div>
+            <div style="margin-top: 20px" class="container" id="displayResult">
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    let runEle = $('#run');
+    runEle.on('click', function () {
+        let mysqlEle = $('#mysql');
+        let redshiftEle = $('#redshift');
+        let databaseType = '';
+        let sqlText = $('#sqlTextArea').val();
+        let data = {};
+        if (mysqlEle.prop('checked')) {
+            databaseType = 'mysql';
+        }
+        if (redshiftEle.prop('checked')) {
+            databaseType = 'redshift';
+        }
+        data['sqlText'] = sqlText;
+        data['databaseType'] = databaseType;
+        console.log('databaseType: ' + databaseType);
+        console.log('data: ' + JSON.stringify(data));
+        // clear result
+        $('#displayResult').empty();
+        let startTime = new Date().getTime();
+        $.ajax({
+            type: 'post',
+            url: databaseType,
+            dataType: 'json',
+            data: data,
+            success: function (dataFromServer) {
+                let endTime = new Date().getTime();
+                $('#runtime').text((endTime - startTime) + 'ms');
+                if (dataFromServer.length !== 0) {
+                    $('#total').text(dataFromServer.length);
+                    let head = [];
+                    for (let key in dataFromServer[0]) {
+                        head.push(key);
+                    }
+                    rows = [];
+                    for (let i = 0; i < dataFromServer.length; i++) {
+                        tmp = [];
+                        for (let key in dataFromServer[i]) {
+                            tmp.push(dataFromServer[i][key]);
+                        }
+                        rows.push(tmp);
+                    }
+
+                    // render
+
+                    // create head
+                    let headEle = $('<thead></thead>');
+                    let trEle = $('<tr></tr>');
+                    for (let i in head) {
+                        let thEle = $('<th></th>').attr('scope', 'col').text(head[i]);
+                        trEle.append(thEle);
+                    }
+                    headEle.append(trEle);
+
+                    // render body
+                    let bodyEle = $('<tbody></tbody>');
+                    for (let i in rows) {
+                        trEle = $('<tr></tr>');
+                        for (j in rows[i]) {
+                            let thEle = $('<td></td>').text(rows[i][j]);
+                            trEle.append(thEle);
+                            console.log(rows[i][j]);
+                        }
+                        bodyEle.append(trEle);
+                    }
+
+                    // add thead and tbody to table
+                    let tableEle = $('<table></table>').attr('class', 'table');
+                    tableEle.append(headEle);
+                    tableEle.append(bodyEle);
+
+                    // add table to displayResult
+                    $('#displayResult').append(tableEle);
+                }
+            },
+            error: function (xhr, ajaxOptions, thrownError) {
+                alert(xhr.status);
+                alert(thrownError);
+            }
+        });
+    });
+
+</script>
+</body>
+</html>
