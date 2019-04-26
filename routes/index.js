@@ -6,7 +6,7 @@ var mysql = require('mysql');
 var mysqlCon = mysql.createConnection({
     host: "cs527.c7ftzzwu1edi.us-east-1.rds.amazonaws.com",
     user: "cs527_group4",
-    password: "bestfriend",
+    password: "bestfriend1",
     database: 'NCAA',
 });
 
@@ -17,21 +17,31 @@ mysqlCon.connect(function (err) {
 
 
 // redshift
-var Redshift = require('node-redshift');
+// var Redshift = require('node-redshift');
 
-var redshiftConn =  new Redshift({
-    user: 'cs527',
-    database: 'dev',
-    password: 'Bestfriend776',
-    port: '5439',
-    host: 'cs527.chm4o2ryw9ps.us-east-1.redshift.amazonaws.com',
-}, {rawConnection: true});
+// var redshiftConn =  new Redshift({
+//     user: 'cs527',
+//     database: 'dev',
+//     password: 'Bestfriend776',
+//     port: '5439',
+//     host: 'cs527.chm4o2ryw9ps.us-east-1.redshift.amazonaws.com',
+// }, {rawConnection: true});
 
-redshiftConn.connect(function(err){
-    if(err) throw err;
-    else{
-        console.log('Redshift Connected!');
+// redshiftConn.connect(function(err){
+//     if(err) throw err;
+//     else{
+//         console.log('Redshift Connected!');
+//     }
+// });
+
+var MongoClient = require('mongodb').MongoClient;
+var uri = "mongodb+srv://cc1607:bestfriend@cluster0-atpu3.mongodb.net/test?retryWrites=true";
+var client = new MongoClient(uri, { useNewUrlParser: true });
+client.connect(function(err, db) {
+    if (err) {
+        console.log('mongodb fails');
     }
+    console.log('mongodb connected')
 });
 
 
@@ -54,11 +64,16 @@ router.post('/mysql', function (req, res, next) {
 });
 
 router.post('/redshift', function (req, res) {
-    console.log('redshift');
+    console.log('route mongodb');
     let sqlText = req.body.sqlText;
-    console.log(sqlText);
-    mysqlCon.query(sqlText, function (err, result, fields) {
+    console.log(sqlText)
+    obj = JSON.parse(sqlText);
+    console.log(obj['cols'])
+    obj['cols']['_id'] = 0
+    // obj = {'databaseName': 'NCAA', 'collectionName':'Seasons'};
+    client.db(obj['databaseName']).collection(obj['collectionName']).find({},{projection:obj['cols']}).limit(obj['limit']).toArray(function(err, result) {
         if (err) {
+            console.log('err occurs');
             res.send(err);
         } else {
             res.send(result);
