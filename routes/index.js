@@ -116,9 +116,23 @@ router.post('/redshift', function (request, response) {
                 }
             });
                 `;
+            if (!sqlText.includes('*')) {
+                var t1 = third_part.indexOf('}, {');
+                var t2 = third_part.indexOf('})');
+                var projection = '{projection:' + third_part.slice(t1 + 2, t2) + ',_id:0}}';
+                third_part = third_part.slice(0, t1 + 2) + projection + third_part.slice(t2 + 1);
+                console.log('thrid_part:' + third_part);
+            } else {
+                var t1 = third_part.indexOf('})');
+                var projection = '{projection:{_id:0}}';
+                third_part = third_part.slice(0, t1 + 1) + ',' + projection + third_part.slice(t1 + 1);
+                console.log('third_part:' + third_part);
+            }
+
             var db = client.db('NCAA');
             fourth_part = fourth_part.trim();
             cmd = first_part + '.collection("' + second_part + '").' + third_part + fourth_part;
+            console.log(cmd);
             eval(cmd);
         });
         res.on('end', () => {
