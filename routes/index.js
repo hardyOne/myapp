@@ -95,31 +95,19 @@ router.post('/redshift', function (request, response) {
         res.on('data', (chunk) => {
             // console.log(chunk)
             var $ = cheerio.load(chunk);
-            var text = $('#mongoQuery').text().trim();
+            var cmd = $('#mongoQuery').text().trim();
             // empty text
-            if (!text) {
+            if (!cmd) {
                 return
             }
-            // console.log('text:' + text);
-            var condition = {};
-            var result_dict = {};
-            // select * from table => db.table.find()
-            if (!text.includes('find()')) {
-                console.log('text:' + text);
-                tmp = text.split('find(')[1].split(')')[0].trim();
-                tmp = '[' + tmp + ']';
-                tmp_arr = JSON.parse(tmp);
-                console.log('tmp_arr:' + JSON.stringify(tmp_arr));
-                condition = tmp_arr[0];
-                if (!sqlText.includes('*')) {
-                    result_dict = tmp_arr[1];
-                }
-            }
-            result_dict['_id'] = 0;
-            console.log('condition:' + JSON.stringify(condition));
-            console.log('result_dict:' + JSON.stringify(result_dict));
-            let obj = convert(sqlText);
-            client.db('NCAA').collection(obj['table_name']).find(condition, {projection: result_dict}).limit(obj['limit']).toArray(function (err, result) {
+            cmd = cmd.split(';')[0];
+            var first_point = cmd.indexOf('.');
+            var second_point = cmd.indexOf('.', first_point + 1);
+            var first_part = cmd.slice(0, first_point);
+            var second_part = cmd.slice(first_point + 1, second_point);
+            var third_part = cmd.slice(second_point + 1);
+            var fourth_part = `
+                .toArray(function (err, result) {
                 if (err) {
                     console.log('err occurs');
                     response.send(err);
@@ -127,7 +115,11 @@ router.post('/redshift', function (request, response) {
                     response.send(result);
                 }
             });
-
+                `;
+            var db = client.db('NCAA');
+            fourth_part = fourth_part.trim();
+            cmd = first_part + '.collection("' + second_part + '").' + third_part + fourth_part;
+            eval(cmd);
         });
         res.on('end', () => {
             // console.log('No more data in response.');
