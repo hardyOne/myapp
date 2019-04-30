@@ -64,22 +64,84 @@ router.post('/mysql', function (req, res, next) {
     });
 });
 
-router.post('/redshift', function (req, res) {
+
+router.post('/redshift', function (request, response) {
     console.log('route mongodb');
-    let sqlText = req.body.sqlText;
+    let sqlText = request.body.sqlText;
     console.log(sqlText);
-    let obj = convert(sqlText);
-    console.log(obj);
-    console.log(obj['cols']);
-    // obj = {'databaseName': 'NCAA', 'collectionName':'Seasons','cols':{}};
-    client.db('NCAA').collection(obj['table_name']).find(obj['condition'], {projection: obj['cols']}).limit(obj['limit']).toArray(function (err, result) {
-        if (err) {
-            console.log('err occurs');
-            res.send(err);
-        } else {
-            res.send(result);
-        }
+
+    // spider
+    var querystring = require('querystring');
+    var http = require('http');
+    var cheerio = require('cheerio');
+    const postData = querystring.stringify({
+        'MySQLQuery': sqlText
     });
+
+    const options = {
+        hostname: 'www.querymongo.com',
+        path: '/',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(postData)
+        }
+    };
+
+    const req = http.request(options, (res) => {
+        // console.log(`STATUS: ${res.statusCode}`);
+        // console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+            // console.log(chunk)
+            var $ = cheerio.load(chunk);
+            var text = $('#mongoQuery').text().trim();
+            // empty text
+            if (!text) {
+                return
+            }
+            // console.log('text:' + text);
+            var condition = {};
+            var result_dict = {};
+            // select * from table => db.table.find()
+            if (!text.includes('find()')) {
+                console.log('text:' + text);
+                tmp = text.split('find(')[1].split(')')[0].trim();
+                tmp = '[' + tmp + ']';
+                tmp_arr = JSON.parse(tmp);
+                console.log('tmp_arr:' + JSON.stringify(tmp_arr));
+                condition = tmp_arr[0];
+                if (!sqlText.includes('*')) {
+                    result_dict = tmp_arr[1];
+                }
+            }
+            result_dict['_id'] = 0;
+            console.log('condition:' + JSON.stringify(condition));
+            console.log('result_dict:' + JSON.stringify(result_dict));
+            let obj = convert(sqlText);
+            client.db('NCAA').collection(obj['table_name']).find(condition, {projection: result_dict}).limit(obj['limit']).toArray(function (err, result) {
+                if (err) {
+                    console.log('err occurs');
+                    response.send(err);
+                } else {
+                    response.send(result);
+                }
+            });
+
+        });
+        res.on('end', () => {
+            // console.log('No more data in response.');
+        });
+    });
+
+    req.on('error', (e) => {
+        console.error(`problem with request: ${e.message}`);
+    });
+
+    // Write data to request body
+    req.write(postData);
+    req.end();
+    // spider
 });
 
 module.exports = router;
@@ -106,25 +168,10 @@ var convert = function (sql) {
     var after_from = from_strs[1].trim();
     var where_strs = after_from.split('where');
     var table = where_strs[0].trim();
-    if (where_strs.length > 1) {
-        var after_where = where_strs[1].trim();
-        var col_strs = after_where.split('=');
-        var col = col_strs[0].trim();
-        var value = col_strs[1].trim();
-        var condition = {};
-        condition[col] = value;
-        return {
-            'table_name': table,
-            'cols': cols_dict,
-            'condition': condition,
-            'limit': 100000
-        };
-    }
     return {
         'table_name': table,
         'cols': cols_dict,
         'limit': 100000,
-        'condition': {}
     };
 };
 
