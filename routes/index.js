@@ -101,11 +101,12 @@ router.post('/redshift', function (request, response) {
                 return
             }
             cmd = cmd.split(';')[0];
+            console.log('original cmd:' + cmd);
             var first_point = cmd.indexOf('.');
             var second_point = cmd.indexOf('.', first_point + 1);
-            var first_part = cmd.slice(0, first_point);
-            var second_part = cmd.slice(first_point + 1, second_point);
-            var third_part = cmd.slice(second_point + 1);
+            var first_part = cmd.slice(0, first_point).trim();
+            var second_part = cmd.slice(first_point + 1, second_point).trim();
+            var third_part = cmd.slice(second_point + 1).trim();
             var fourth_part = `
                 .toArray(function (err, result) {
                 if (err) {
@@ -116,27 +117,48 @@ router.post('/redshift', function (request, response) {
                 }
             });
                 `;
-            if (!sqlText.includes('*')) {
+            var has_star = sqlText.includes('*');
+            var has_where = sqlText.includes('where');
+            var has_order = sqlText.includes('order');
+            var has_limit = sqlText.includes('limit');
+            var has_id = sqlText.includes('_id');
+            console.log('star:' + has_star);
+            console.log('has_where:' + has_where);
+            console.log('has_order:' + has_order);
+            console.log('has_limit:' + has_limit);
+            // has_star
+            if (has_star) {
+                // get rid of _id field
+                var str = 'find(';
+                var find_index = third_part.indexOf(str);
+                third_part = third_part.slice(0, find_index + str.length) + '{},{projection:{_id:0}})' + third_part.slice(find_index + str.length + 1);
+                if (has_id) {
+                    third_part = third_part.slice(0, find_index + str.length) + '{},{projection:{_id:1}})' + third_part.slice(find_index + str.length + 1);
+                }
+            }
+            // do not have star
+            else {
                 var t1 = third_part.indexOf('}, {');
                 var t2 = third_part.indexOf('})');
                 var projection = '{projection:' + third_part.slice(t1 + 2, t2) + ',_id:0}}';
+                if (has_id) {
+                    projection = '{projection:' + third_part.slice(t1 + 2, t2) + ',_id:1}}';
+                }
                 third_part = third_part.slice(0, t1 + 2) + projection + third_part.slice(t2 + 1);
-                console.log('thrid_part:' + third_part);
-            } else {
-                var t1 = third_part.indexOf('})');
-                var projection = '{projection:{_id:0}}';
-                third_part = third_part.slice(0, t1 + 1) + ',' + projection + third_part.slice(t1 + 1);
-                console.log('third_part:' + third_part);
-            }
 
+            }
             var db = client.db('NCAA');
             fourth_part = fourth_part.trim();
+            console.log('first_part:' + first_part);
+            console.log('second_part:' + second_part);
+            console.log('third_part:' + third_part);
+            console.log('fourth_part:' + fourth_part);
             cmd = first_part + '.collection("' + second_part + '").' + third_part + fourth_part;
             console.log(cmd);
             eval(cmd);
         });
         res.on('end', () => {
-            // console.log('No more data in response.');
+            // console.log('No more data in response');
         });
     });
 
