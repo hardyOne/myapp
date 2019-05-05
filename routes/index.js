@@ -131,10 +131,15 @@ router.post('/redshift', function (request, response) {
                 // get rid of _id field
                 var str = 'find(';
                 var find_index = third_part.indexOf(str);
-                third_part = third_part.slice(0, find_index + str.length) + '{},{projection:{_id:0}})' + third_part.slice(find_index + str.length + 1);
-                if (has_id) {
-                    third_part = third_part.slice(0, find_index + str.length) + '{},{projection:{_id:1}})' + third_part.slice(find_index + str.length + 1);
+                if (!has_where) {
+                    third_part = third_part.slice(0, find_index + str.length) + '{},{projection:{_id:0}})' + third_part.slice(find_index + str.length + 1);
+                } else {
+                    str = '})';
+                    var parenthesis_index = third_part.indexOf(str, find_index + 1);
+                    third_part = third_part.slice(0, parenthesis_index + 1) + ',{projection:{_id:0}})' + third_part.slice(parenthesis_index + 2);
+                    ;
                 }
+
             }
             // do not have star
             else {
